@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Email Analyzer 9</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 탭 메뉴 추가 -->
+  <div class="tab-menu">
+    <button class="tab-btn active" data-tab="emails">Emails</button>
+    <button class="tab-btn" data-tab="analysis">Analysis</button>
+  </div>
+
+  <!-- Emails 탭 컨텐츠 -->
+  <div id="emails-tab" class="tab-content active">
+    <div class="container">
+      <div class="sidebar">
+        <button id="connect-server-btn">Connect to Mail Server</button>
+        <div class="mailboxes">
+          <h3>Mailboxes</h3>
+          <ul id="mailbox-tree" class="tree"></ul>
+        </div>
+      </div>
+      <div class="content">
+        <div class="emails">
+          <h3 id="current-mailbox">No Mailbox Selected</h3>
+          <div id="email-list">
+            <!-- Emails will be listed here -->
+          </div>
+        </div>
+        <div class="email-content">
+          <h3>Email Content</h3>
+          <div id="email-viewer">
+            <!-- Email content will be displayed here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analysis 탭 컨텐츠 -->
+  <div id="analysis-tab" class="tab-content">
+    <div class="analysis-container">
+      <div class="analysis-sidebar">
+        <h3>Analysis</h3>
+        <ul>
+          <li><a href="#" id="sender-menu">Sender</a></li>
+          <li><a href="#" id="recipient-menu">Recipient</a></li>
+          <li><a href="#" id="reference-menu">Reference</a></li>
+          <li><a href="#" id="keywords-menu">Keywords</a></li>
+        </ul>
+      </div>
+      <div class="analysis-content">
+        <div class="date-range-controls">
+          <input type="date" id="start-date" name="start-date">
+          <input type="date" id="end-date" name="end-date">
+          <button id="apply-date-range">Apply Date Range</button>
+          <div class="view-options">
+            <input type="radio" id="view-by-day" name="view-type" value="day" checked>
+            <label for="view-by-day">View by day</label>
+            <input type="radio" id="view-by-week" name="view-type" value="week">
+            <label for="view-by-week">View by week</label>
+          </div>
+        </div>
+        <div id="analysis-viewer"></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- connection-form 모달 추가 -->
+  <div id="connection-modal" class="connection-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Connect to Mail Server</h3>
+        <p class="connection-instruction">This program is a tool for analyzing various aspects of an individual's mail data.
+          Enter the IMAP connection information of the server from which you want to get mail data.</p>
+      </div>
+      <div class="modal-body">
+        <div class="connection-form" id="connection-form-container">
+          <form id="connection-form">
+            <div>
+              <label for="host">Host:</label>
+              <input type="text" id="host" required value="localhost">
+            </div>
+            <div>
+              <label for="port">Port:</label>
+              <select id="port" required>
+                <option value="143">143 (Standard)</option>
+                <option value="993">993 (SSL/TLS)</option>
+              </select>
+            </div>
+            <div>
+              <label for="user">User:</label>
+              <input type="text" id="user" required>
+            </div>
+            <div>
+              <label for="password">Password:</label>
+              <input type="password" id="password" required >
+            </div>
+            <div>
+              <label for="tls">Use TLS:</label>
+              <input type="checkbox" id="tls">
+            </div>
+            <div class="button-group">
+              <button type="button" id="connect-only-btn">Connect</button>
+              <button type="button" id="connect-init-btn">Connect & Get Mails</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress 모달 추가 -->
+  <div id="progress-modal" class="progress-modal" style="display: none;">
+    <div class="progress-modal-content">
+      <div class="progress-container">
+        <div class="title">Importing Emails...</div>
+        <div class="status" id="progress-status">Preparing connection...</div>
+        
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        
+        <div class="percentage" id="progress-percentage">0%</div>
+        
+        <div class="details">
+          <span id="progress-current-count">0</span>
+          <span>of <span id="progress-total-count">0</span> mailboxes</span>
+        </div>
+        
+        <div class="current-mailbox" id="progress-current-mailbox">Preparing...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email List 모달 추가 -->
+  <div id="email-list-modal" class="email-modal" style="display: none;">
+    <div class="email-modal-content">
+      <div class="email-modal-header">
+        <h3 id="email-list-title">Email List</h3>
+        <button class="close-modal" id="close-email-list-modal">&times;</button>
+      </div>
+      <div class="email-modal-body">
+        <div id="filtered-email-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Content 모달 추가 -->
+  <div id="email-content-modal" class="email-modal" style="display: none;">
+    <div class="email-modal-content email-content-modal-content">
+      <div class="email-modal-header">
+        <h3>Email Content</h3>
+        <button class="close-modal" id="close-email-content-modal">&times;</button>
+      </div>
+      <div class="email-modal-body">
+        <div id="filtered-email-viewer"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="renderer.js"></script>
+</body>
+</html>
