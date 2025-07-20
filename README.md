@@ -14,7 +14,7 @@ Almost everything in this project, including the README.md file, was developed t
 - Email collection through IMAP server connection
 - Retrieving email metadata and full content
 
-  ![img1](./images/img1.PNG)
+  ![img1](images/img1.PNG)
 
 
 ### 🗃️ Database Storage and Management
@@ -33,19 +33,19 @@ Almost everything in this project, including the README.md file, was developed t
 ### 📊 Email Analysis
 - Email grouping by sender
 
-  ![img2](./images/img2.PNG)
+  ![img2](images/img2.PNG)
 
 - Email classification by recipient
 
-  ![img3](./images/img3.PNG)
+  ![img3](images/img3.PNG)
 
 - Keyword-based email analysis
 
-  ![img4](./images/img4.PNG)
+  ![img4](images/img4.PNG)
 
 - Email reference relationship tracking
 
-  ![img5](./images/img5.PNG)
+  ![img5](images/img5.PNG)
 
 
 
