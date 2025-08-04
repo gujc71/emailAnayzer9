@@ -1216,6 +1216,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Auto-configure TLS when port changes
+  const portSelect = document.getElementById('port');
+  const tlsCheckbox = document.getElementById('tls');
+  
+  portSelect.addEventListener('change', () => {
+    const selectedPort = parseInt(portSelect.value);
+    if (selectedPort === 993) {
+      tlsCheckbox.checked = true;
+    } else if (selectedPort === 143) {
+      tlsCheckbox.checked = false;
+    }
+  });
+
   // Add this line to try loading mailboxes on startup
   loadMailboxes();
 });

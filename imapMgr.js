@@ -5,25 +5,154 @@ const { saveEmail, saveMailbox } = require('./database'); // Import saveEmail fu
 // Add a variable to track the currently open mailbox
 let currentOpenMailbox = null;
 
-function connectImap(config) {
+function connectImap(config, retryCount = 0) {
   return new Promise((resolve, reject) => {
-    const imap = new Imap(config);
+    // Enhanced config for TLS/SSL connections
+    const imapConfig = {
+      host: config.host,
+      port: config.port,
+      user: config.user,
+      password: config.password,
+      tls: config.tls || false,
+      secure: config.port === 993 || config.tls, // Auto-detect secure connection for port 993
+      tlsOptions: {
+        rejectUnauthorized: false, // Allow self-signed certificates
+        servername: config.host,
+        ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA',
+        minVersion: 'TLSv1.2',
+        maxVersion: 'TLSv1.3'
+      },
+      connTimeout: 60000, // Connection timeout: 60 seconds
+      authTimeout: 15000,  // Authentication timeout: 15 seconds
+      keepalive: {
+        interval: 10000,  // Send a 'NOOP' command every 10 seconds
+        idleInterval: 300000, // Send an 'IDLE' command every 5 minutes
+        forceNoop: true   // Force NOOP even when IDLE is supported
+      }
+    };
+
+    // Remove debug logging for production
+    if (process.env.NODE_ENV === 'development') {
+      imapConfig.debug = console.log;
+    }
+
+    console.log('Connecting to IMAP with config:', {
+      host: imapConfig.host,
+      port: imapConfig.port,
+      user: imapConfig.user,
+      tls: imapConfig.tls,
+      secure: imapConfig.secure,
+      attempt: retryCount + 1
+    });
+
+    const imap = new Imap(imapConfig);
+
+    // Set up timeout for the entire connection process
+    const connectionTimeout = setTimeout(() => {
+      imap.destroy();
+      reject(new Error(`Connection timeout after ${imapConfig.connTimeout}ms`));
+    }, imapConfig.connTimeout + 5000);
 
     imap.once('ready', () => {
+      clearTimeout(connectionTimeout);
+      console.log('IMAP connection ready');
       imap.getBoxes((err, boxes) => {
         if (err) {
-          reject(err);
+          console.error('Error getting boxes:', err);
+          reject(new Error(`Failed to retrieve mailboxes: ${err.message}`));
         } else {
+          console.log('Successfully retrieved mailboxes');
           resolve({ imap, boxes });
         }
       });
     });
 
     imap.once('error', (err) => {
-      reject(err);
+      clearTimeout(connectionTimeout);
+      console.error('IMAP connection error:', err);
+      
+      // Enhanced error messages
+      let errorMessage = err.message;
+      if (err.code === 'ECONNREFUSED') {
+        errorMessage = `Connection refused to ${config.host}:${config.port}. Please check:\n` +
+                      `- Server address and port are correct\n` +
+                      `- Server is running and accessible\n` +
+                      `- Firewall settings allow the connection\n` +
+                      `- For port 993: Ensure TLS/SSL is properly configured`;
+      } else if (err.code === 'ENOTFOUND') {
+        errorMessage = `Host not found: ${config.host}. Please check the server address.`;
+      } else if (err.code === 'ETIMEDOUT') {
+        errorMessage = `Connection timed out to ${config.host}:${config.port}. The server may be slow or unreachable.`;
+      } else if (err.message.includes('certificate')) {
+        errorMessage = `TLS Certificate error: ${err.message}. Try disabling certificate validation or check server certificate.`;
+      } else if (err.message.toLowerCase().includes('auth') || 
+                 err.message.toLowerCase().includes('credential') || 
+                 err.message.toLowerCase().includes('login') ||
+                 err.message.toLowerCase().includes('password') ||
+                 err.message.includes('Invalid credentials') ||
+                 err.message.includes('Authentication failed')) {
+        
+        // Gmail specific error handling
+        if (config.host && config.host.toLowerCase().includes('gmail')) {
+          errorMessage = `Gmail 인증 실패: ${err.message}\n` +
+                        `Gmail 접속을 위해 다음을 확인하세요:\n` +
+                        `- 2단계 인증이 활성화되어 있는지 확인\n` +
+                        `- 앱 비밀번호를 생성하여 사용해야 합니다 (일반 비밀번호 사용 불가)\n` +
+                        `- Google 계정 > 보안 > 앱 비밀번호에서 생성\n` +
+                        `- IMAP이 활성화되어 있는지 확인 (Gmail 설정 > 전달 및 POP/IMAP)\n` +
+                        `- "보안 수준이 낮은 앱의 액세스"는 더 이상 지원되지 않습니다`;
+        } else {
+          errorMessage = `인증 실패: ${err.message}\n` +
+                        `다음을 확인하세요:\n` +
+                        `- 사용자명과 비밀번호가 정확한지 확인\n` +
+                        `- 계정이 잠겨있거나 일시정지되지 않았는지 확인\n` +
+                        `- 2단계 인증이 올바르게 구성되어 있는지 확인\n` +
+                        `- 필요한 경우 앱 전용 비밀번호 사용\n` +
+                        `- 이 계정에서 IMAP 액세스가 활성화되어 있는지 확인`;
+        }
+      }
+
+      // Retry logic for certain errors (but not authentication errors)
+      const retryableErrors = ['ETIMEDOUT', 'ECONNRESET', 'EPIPE'];
+      const maxRetries = 2;
+      
+      // Don't retry authentication failures
+      const isAuthError = err.message.toLowerCase().includes('auth') || 
+                         err.message.toLowerCase().includes('credential') || 
+                         err.message.toLowerCase().includes('login') ||
+                         err.message.toLowerCase().includes('password') ||
+                         err.message.includes('Invalid credentials') ||
+                         err.message.includes('Authentication failed');
+      
+      if (!isAuthError && retryCount < maxRetries && retryableErrors.some(code => err.code === code)) {
+        console.log(`Retrying connection (attempt ${retryCount + 2}/${maxRetries + 1})...`);
+        setTimeout(() => {
+          connectImap(config, retryCount + 1)
+            .then(resolve)
+            .catch(reject);
+        }, (retryCount + 1) * 2000); // Exponential backoff
+      } else {
+        reject(new Error(errorMessage));
+      }
     });
 
-    imap.connect();
+    imap.once('close', () => {
+      clearTimeout(connectionTimeout);
+      console.log('IMAP connection closed');
+    });
+
+    imap.once('end', () => {
+      clearTimeout(connectionTimeout);
+      console.log('IMAP connection ended');
+    });
+
+    try {
+      imap.connect();
+    } catch (err) {
+      clearTimeout(connectionTimeout);
+      console.error('Error initiating IMAP connection:', err);
+      reject(new Error(`Failed to initiate connection: ${err.message}`));
+    }
   });
 }
 

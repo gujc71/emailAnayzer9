@@ -56,8 +56,7 @@ function createWindow() {
     },
   });
 
-  // 개발자 도구 자동으로 열기 (디버깅용)
-  mainWindow.webContents.openDevTools();
+  //mainWindow.webContents.openDevTools();
 
   mainWindow.loadFile('index.html');
 
